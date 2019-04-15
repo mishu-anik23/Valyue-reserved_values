@@ -1,0 +1,188 @@
+grammar {
+    start =
+    element sentconfiguration {
+        Version?,
+        Device+
+    }
+
+    Version =
+    element version {
+        attribute major { xsd:integer },
+        attribute minor { xsd:integer },
+        attribute suffix { xsd:string }
+    }
+
+    Device =
+    element device {
+        attribute name { text }, # Human readable name, defaults to deviceid
+        attribute deviceid { text },
+        Bus+
+    }
+
+    Bus =
+    element bus {
+        attribute busid { text },  # how to select bus on device
+        attribute mode { string "multiplex" | string "simplex" },
+        # J2716_201604 defines one or two "fast channels": FC1, FC2
+        SentParameters,
+        (Frame | MultiplexFrame+),
+        # we defer the separation into fast channels to the frame element
+        # multiple frame definitions if 'multiplex=true'
+        SerialChannel?   # alway present but need not be specified
+    }
+
+    SentParameters =
+    element sentparameters {
+        attribute release { string "2007"
+                          | string "2008"
+                          | string "2010"
+                          | string "2016"
+                          | text  # for compatibility with future J2716 releases
+                          },
+        attribute ticklength { xsd:float },  # default: 90 µs
+        attribute synclow { xsd:float }?,   # default: 5 * ticklength
+        attribute synchigh { xsd:float }?,  # default: 51 * ticklength
+        attribute msglength { xsd:integer },  # default: 8 nibbles
+        attribute msgticks { xsd:integer },  # default: 0 => variable length
+        attribute crc_enable { xsd:boolean },
+        attribute use_ic { xsd:boolean },  # default: False
+        attribute use_rc { xsd:boolean },  # default: False
+        attribute diagcom { string "off"
+                          | string "simple"
+                          | string "enhanced"
+                          }
+    }
+
+    SerialChannel =
+    element serialchannel {
+        element properties { text } # to be defined later
+    }
+
+    Frame =
+    ## A (simplex) frame encodes one or more signals (one or two, FC1 and FC2).
+    ## A frame consists of the 6 data nibbles (based on 8 nibbles/message).
+    ## The msglength attribute must give the nibbles per message!
+    ## Nibbles count from 0 in a message, nibble 1 is the first nibble
+    ## in a frame.
+    element frame {
+        ## The length of a SENT message (including status/error nibble and
+        ## CRC nibble; the data frame does not include these two nibbles
+        ## default: 8 nibbles/message
+        attribute msglength { xsd:integer }?,
+        SignalDefinition+
+    }
+
+    MultiplexFrame =
+    ## A multiplex frame is one of several frames carrying different signals.
+    ## A frame consists of the 6 data nibbles (based on 8 nibbles/message).
+    ## The msglength attribute must give the nibbles per message!
+    ## Nibbles count from 0 in a message, nibble 1 is the first nibble
+    ## in a frame.
+    element frame {
+        ## The length of a SENT message (including status/error nibble and
+        ## CRC nibble; the data frame does not include these two nibbles
+        ## default: 8 nibbles/message
+        attribute msglength { xsd:integer }?,
+        PredefinedFC,
+        PredefinedDCC?,
+        SignalDefinition+
+    }
+
+    PredefinedFC =
+    element predefinedsignal {
+        attribute name { "FC" },
+        ## A framecounter must be given for multiplex frames; each frame
+        ## must get a separate number (0..15).
+        attribute framecounter { xsd:integer }
+    }
+
+    PredefinedDCC =
+    element predefinedsignal {
+        ## The DCC is optional according to SAE J2716_201604;
+        ## its value is incremented after each full cycle of multiplex frames
+        attribute name { "DCC" }
+    }
+
+    SignalDefinition =
+    element signaldefinition {
+        ## The name of the signal as shown in the tool
+        ## Note: For multiplex messages with DCC, the DCC must be defined
+        ## as a signal, too.
+        attribute name { text },
+        ## Alternative name for the signal, e.g. for reading from a file
+        attribute alt_name { text },
+        attribute fcid { text }?,  # you may assign a fast channel ID
+        Encoding,
+        (Unused | BitField | Physical),
+        Default?
+    }
+
+    Encoding =
+    element encoding {
+        ## the number of bits allocated for this signal
+        attribute bitsize { xsd:integer },
+        ## index of most significant nibble (counting from 1 in the data frame)
+        attribute msn { xsd:integer },
+        ## index of least significant nibble (counting from 1 in the data frame)
+        attribute lsn { xsd:integer },
+        ## Nibbles are sent in reverse order ("big endian"); this information
+        ## is redundant with msn and lsn but helpful to human readers
+        attribute reversed { xsd:boolean }
+        # Note: The reader/tool will have to figure out if there are
+        # shared nibbles and how to split them up!
+    }
+
+    Unused =
+    ## This indicates that these bits of the frame are not used
+    element unused { empty }
+
+    BitField =
+    ## This indicates that this signal value is an array of bits
+    ## rather than a physical quantity
+    element isbitfield { empty }
+
+    Physical = CanStyle | SaeStyle
+
+    CanStyle =
+    ## CAN style: conversion physical to raw value is given by factor and offset, and a physical range (min, max)
+    element physical {
+        attribute minimum { xsd:float },
+        attribute maximum { xsd:float },
+        attribute offset { xsd:float },
+        attribute factor { xsd:float },
+        attribute unit { xsd:string },
+        attribute format { xsd:string },
+        ErrorCodes?
+    }
+    SaeStyle =
+    ## SAE style: conversion physical to raw value is given by two points, (X1, Y1) and (X2, Y2). The x axis represents
+    ## the physical domain, the y axis the SENT values.
+    ## The two points given also represent the boundaries of precise measurement. Values outside this region must be
+    ## considered to be subject to a much larger error.
+    element physical_sae {
+        attribute x1_phy { xsd:float },
+        attribute x2_phy { xsd:float },
+        attribute y1_raw { xsd:int },
+        attribute y2_raw { xsd:int },
+        attribute unit { xsd:string },
+        attribute format { xsd:string },
+        ErrorCodes?
+    }
+    ErrorCodes =
+        element errorcodes {
+            ErrorCode+
+        }
+    ErrorCode =
+    element errorcode {
+        attribute hexvalue { xsd:string },
+        attribute desc { xsd:string }?
+    }
+
+    Default =
+    ## This element can contain any value as long as it is in the
+    ## range denoted by physical.minimum and physical.maximum.
+    ## The value must be parseable (by Python) as a numeric value, e.g.
+    ## an integer, a floating point number, or a hex value.  It must not
+    ## contain any units.
+    element default { text }
+}
