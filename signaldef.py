@@ -184,7 +184,7 @@ class Physical:
             else:
                 errorcodes_xml = physical.find('errorcodes')
                 errorcodes = read_errorcodes(errorcodes_xml)
-                print(errorcodes)
+                #print(errorcodes)
                 minimum = intorfloat(physical.attrib['minimum'])
                 maximum = intorfloat(physical.attrib['maximum'])
                 resolution = 1 / (intorfloat(physical.attrib['factor']))

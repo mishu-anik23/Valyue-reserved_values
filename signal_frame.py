@@ -37,6 +37,7 @@ class SignalFrame(Frame):
 
         self.sigrows = []
 
+
         # TODO: do not create rows here, use separate method "add_row"
         # TODO: do not use SignalDefinition objects but signal_details
         # row = SignalRow(self, row=2,
@@ -44,7 +45,13 @@ class SignalFrame(Frame):
         #
         # self.sigrows.append(row)
         for signal_details in signal_details_from_frames():
-            self.add_signal_row(((len(self.sigrows) + 1) * 2), signal_details)
+            self.add_signal_row((len(self.sigrows) + 1) * 2, signal_details)
+
+        self.row_position = (len(self.sigrows) + 1) * 2
+
+        self.create_label_bitfield()
+        self.create_entry_bitfield()
+        self.chunks_bitfield(16, 4)
         self._create_button_widget()
         self._create_column_heading_signal_name(heading_text="Signal Name 1", column=0)
         self._create_column_heading_signal_name(heading_text="Signal Name 2", column=3)
@@ -57,6 +64,27 @@ class SignalFrame(Frame):
     def add_signal_row(self, row_pos, signal_details):
             sigrow = SignalRow(self, row=row_pos, signal_details=signal_details)
             self.sigrows.append(sigrow)
+
+    def create_chkbtns_bitfield(self, row, row_chunk_size, count):
+        for col in range(row_chunk_size):
+            #count += col
+            chkbtn_bitfield = Checkbutton(self, text="Bit_{}".format(col+count), variable=bitfield_indicator)
+            chkbtn_bitfield.grid(row=row, column=col+6)
+
+    def chunks_bitfield(self, bitwidth, row_div):
+        chunk_size = int(bitwidth / row_div)
+        for row_num in range(chunk_size):
+            bit_count = chunk_size * row_num
+            self.create_chkbtns_bitfield(self.row_position+row_num, chunk_size, bit_count)
+
+    def create_label_bitfield(self):
+        bitfield_label = Label(self, text="Bitfield Label Demo !!!", font=("Helvetica", 12))
+        bitfield_label.grid(row=self.row_position+1, column=0, columnspan=3, sticky=W+E)
+
+    def create_entry_bitfield(self):
+        entry_default = StringVar()
+        bitfield_entry = Entry(self, textvariable=entry_default, width=28)
+        bitfield_entry.grid(row=self.row_position+1, column=4)
 
     def _create_button_widget(self):
         self.b_update = Button(self, text="Update", command=self.commit, state=NORMAL)
@@ -109,4 +137,4 @@ if __name__ == '__main__':
     sigframe = SignalFrame(master=root)
     sigframe.grid()
     root.mainloop()
-    print(signal_details_from_frames())
+    #print(signal_details_from_frames())

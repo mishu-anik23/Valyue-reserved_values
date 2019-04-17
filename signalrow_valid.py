@@ -97,6 +97,7 @@ class SignalRow:
         self._create_entry_user_value(master)
         self._create_chkbtn_gateway(master)
         self._create_chkbtn_signal_active(master)
+        #self._create_chkbtns_bitfield(master, row, 16, 79)
 
         self._create_signal_label(master, row=row, column=0,
                                   signame=self.signal1_details.name,
@@ -202,6 +203,7 @@ class SignalRow:
         chkbtn_sig_act = Checkbutton(master, text="Signal Active", variable=self.signal_active)
         chkbtn_sig_act.grid(row=self.row, column=11)
 
+
     def get_user_value(self):
         user_value_sig1 = self.entry_sig1.get_value()
         user_value_sig2 = self.entry_sig2.get_value()
@@ -249,6 +251,14 @@ def bg_color_indicator(widget, status):
         widget.config(bg=Status.WARNING.value)
     else:
         widget.config(bg=Status.ERROR.value)
+
+
+def bitfield_indicator(default_value):
+    indicator_list = list(bin(default_value))[2:]
+    if '1' in indicator_list:
+        return True
+    else:
+        return False
 
 
 
